@@ -1,0 +1,4 @@
+requests>=2.31
+pandas>=2.0
+lxml>=5.0
+urllib3>=2.0

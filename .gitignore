@@ -1,0 +1,31 @@
+# 爬取產生的資料與記錄
+db/
+log/
+old_data/
+*.db
+*.sqlite
+*.sqlite3
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+.pytest_cache/
+
+# 打包產物
+build/
+dist/
+*.spec
+*.exe
+
+# 編輯器與系統檔
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Claude Code 本機設定
+.claude/settings.local.json
