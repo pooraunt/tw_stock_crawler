@@ -5,7 +5,7 @@
   每月　　每月營收
   每季　　彙總財務報表（資產負債表、綜合損益表、現金流量表）
   每年　　年度財務分析
-  不定期　公司基本資料、個股營收比重、集團股及概念股、個股細產業
+  不定期　公司基本資料、個股營收比重、集團股及概念股、個股細產業、除權除息
 爬蟲邏輯在各自的模組（daily_price.py、monthly_revenue.py 等），這裡只負責畫面。
 
 只有一個頁面的選單（每日、每月、每季、每年）按下直接切換，多個頁面的才下拉列出；
@@ -86,6 +86,7 @@ import company
 import revenue_mix as rm
 import stock_theme as st
 import sub_industry as si
+import dividend as dv
 
 APP_TITLE = "台股資料爬蟲"
 
@@ -1252,6 +1253,99 @@ def sub_worker(mode, delay):
     report_done(stopped)
 
 
+# ================================================================ 不定期：除權除息
+def dividend_refresh():
+    """資料庫卡片的文字：除權除息的年度範圍（西元年）、筆數與最後除權息日。"""
+    info = dv.get_db_info()
+    if info is None:
+        return ["尚無資料"]
+    first, last, years, count, last_date = info
+    return [f"西元 {first} ～ {last} 年　共 {years} 個年度、{count} 筆　最後除權息日 {last_date}"]
+
+
+def dividend_build(page, parent):
+    """除權除息的輸入區：資料庫、年度區間（西元年）、設定。"""
+    build_db_card(page, parent)
+
+    row = make_inline_card(parent, "年度")
+    v = page['v']
+    this_year = str(dv.current_year())
+    v['syear'] = tk.StringVar(value=this_year)
+    v['eyear'] = tk.StringVar(value=this_year)
+
+    make_label(row, "西元").pack(side='left', padx=(0, px(8)))
+    syear = add_input(page, 'syear', make_entry(row, v['syear']))
+    syear.pack(side='left', ipady=px(4))
+    make_label(row, "～").pack(side='left', padx=px(10))
+    eyear = add_input(page, 'eyear', make_entry(row, v['eyear']))
+    eyear.pack(side='left', ipady=px(4))
+    make_label(row, f"自 {dv.MIN_YEAR} 年起；上市、上櫃的個股與 ETF；同年度重爬會覆蓋", MUTED
+               ).pack(side='left', padx=(px(16), 0))
+
+    # 在年度框按 Enter：開始年度跳到結束年度，結束年度直接開始爬取
+    syear.bind('<Return>', lambda event: eyear.focus_set())
+    eyear.bind('<Return>', lambda event: on_start())
+
+    build_setting_card(page, parent, dv.DEFAULT_DELAY,
+                       "上市的權、權息逐筆查明細，每年約 100～180 次連線")
+
+
+def dividend_read_years(page):
+    """檢查西元年度區間輸入。回傳 (開始年度, 結束年度)；錯誤時跳出提示並回傳 None。"""
+    years = []
+    for name, label in (('syear', "開始年度"), ('eyear', "結束年度")):
+        text = page['v'][name].get().strip()
+        if not text.isdigit() or not (dv.MIN_YEAR <= int(text) <= dv.current_year()):
+            messagebox.showwarning(
+                "輸入錯誤", f"{label}請輸入西元年 {dv.MIN_YEAR}~{dv.current_year()} 的整數")
+            return None
+        years.append(int(text))
+    if years[0] > years[1]:
+        messagebox.showwarning("輸入錯誤", "開始年度不可大於結束年度")
+        return None
+    return tuple(years)
+
+
+def dividend_prepare(page):
+    """檢查除權除息的輸入，組出年度清單。"""
+    years = dividend_read_years(page)
+    if years is None:
+        return None
+    delay = read_delay(page)
+    if delay is None:
+        return None
+
+    syear, eyear = years
+    dv.start_log(f"{syear} ~ {eyear}")
+    return eyear - syear + 1, dividend_worker, (list(range(syear, eyear + 1)), delay)
+
+
+def dividend_worker(years, delay):
+    """背景執行緒：逐年爬取除權除息。
+
+    參數 years：[西元年, ...]；delay：每次請求後暫停秒數
+    """
+    counts = {'ok': 0, 'nodata': 0, 'fail': 0}
+    done = 0
+
+    for year in years:
+        if dv.is_stopped():
+            break
+        status = safe_crawl(dv.crawl_year, year, delay)
+        if status == 'stopped':
+            break
+        counts[status] += 1
+        done += 1
+        msg_queue.put(('progress', done))
+        log("")
+
+    stopped = dv.is_stopped()
+    summary = (f"成功 {counts['ok']} 個年度、尚無資料 {counts['nodata']} 個年度、"
+               f"失敗 {counts['fail']} 個年度")
+    log(("已中止。" if stopped else "全部爬取完畢! ") + summary)
+    report_done(stopped)
+
+
 # ================================================================ 選單與頁面切換
 def build_menus():
     """建立所有頁面的設定，回傳選單 [(選單名稱, [頁面, ...]), ...]，同時是顯示順序。"""
@@ -1278,7 +1372,9 @@ def build_menus():
             make_page("集團股及概念股", "台股集團股及概念股", theme_build,
                       theme_prepare, theme_refresh, [st]),
             make_page("個股細產業", "台股個股細產業", sub_build, sub_prepare,
-                      sub_refresh, [si])]),
+                      sub_refresh, [si]),
+            make_page("除權除息", "台股除權除息（配息配股）", dividend_build,
+                      dividend_prepare, dividend_refresh, [dv])]),
     ]
 
 

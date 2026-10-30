@@ -27,5 +27,5 @@ dist/
 .DS_Store
 Thumbs.db
 
-# Claude Code 本機設定
-.claude/settings.local.json
+# Claude Code 設定與 skills（只在本機使用，不上傳）
+.claude/

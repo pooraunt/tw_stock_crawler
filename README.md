@@ -19,6 +19,7 @@
 | 不定期 | 個股營收比重（Revenue Mix） | 嘉實資訊 MoneyDJ | `revenue_mix.py` | `stock.db` / `revenue_mix` |
 | 不定期 | 集團股、概念股（Theme Stocks） | 嘉實資訊 MoneyDJ | `stock_theme.py` | `stock.db` / `stock_theme` |
 | 不定期 | 個股細產業（Sub-industry） | CMoney | `sub_industry.py` | `stock.db` / `stock_sub_industry` |
+| 不定期 | 除權除息：配息、配股（Ex-dividend / Ex-rights），含 ETF | 證交所 TWSE、櫃買中心 TPEx | `dividend.py` | `dividend.db` / `dividend` |
 
 ### 各類資料說明
 
@@ -27,6 +28,7 @@
 - **彙總財報**：依季度申報期限（Q1 5/15、Q2 8/14、Q3 11/14、Q4 次年 3/31）更新；採 IFRS 後格式，民國 102 年起。金額單位為新台幣仟元。
 - **財務分析**：僅年度資料，每年 4 月 1 日更新前一年度。
 - **不定期資料**：沒有固定更新日，需要時手動執行。營收比重取自各公司年報，一年一筆；集團股、概念股會與來源同步新增與移除。
+- **除權除息**：以西元年度爬取，2013 年起；主鍵為 `(sid, date)`，`date` 為除權息日，一年配發多次就有多筆。現金股利單位為元／股，配股為每千股無償配股股數（股／千股）。純現金增資（沒有配息也沒有配股）不存入；同一年度重爬會覆蓋。
 
 數值一律維持來源單位、不自行換算，詳細清理規則見 [docs/通用資料清理規則.md](docs/通用資料清理規則.md)。
 
@@ -74,6 +76,7 @@ python monthly_revenue.py
 ├── balance_sheet.py / income_statement.py / cashflow.py
 ├── financial_analysis.py      # 年度財務分析
 ├── company.py / revenue_mix.py / stock_theme.py / sub_industry.py
+├── dividend.py                # 除權除息（配息配股）
 ├── docs/                      # 資料清理規則
 ├── db/                        # SQLite 資料庫（自動產生，不上傳）
 └── log/                       # 執行記錄（自動產生，不上傳）
